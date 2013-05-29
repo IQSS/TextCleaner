@@ -5,6 +5,7 @@ import io.Source
 import java.nio.file.Files
 import java.nio.charset.StandardCharsets.UTF_8
 import java.io._
+import org.apache.commons.lang3.StringUtils
 
 abstract class StringToken
 case class WordSuspect( w:String ) extends StringToken
@@ -28,6 +29,8 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
      * Strings that match this, but not the former are considered to be numbers 
      */
     val digitsOnlyRgx = "^[0-9].*$".r
+    
+    val delimiters = "-.,?!:;\"'"
   
     def analyzeWord( s:String ) = {
     	lettersOnlyRgx.findFirstIn(s) match {
@@ -44,8 +47,9 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
     
     def cleanStream( input:Iterator[String], wordFunc:String=>Unit, eolFunc: ()=>Unit ) {
     	for ( line <- input ) {
-    	    for ( (orig,corr) <- cleanLine(line.split("\\s+").toList) ) 
-    	        wordFunc( orig )
+    	    val canonicalRep = StringEscapeUtils.unescapeHtml4(line).toLowerCase
+    	    for ( (orig,corr) <- cleanLine(canonicalRep.split("\\s+").toList) ) 
+    	        wordFunc( corr.asInstanceOf[String] )
     		
     		eolFunc()
     	}
@@ -55,18 +59,8 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
      * Returns 2-tuples: (initial, corrected)
      */
     def cleanLine( elements:List[String] ) = {
-        for ( word <- elements ) yield {
-    			var cleanWord  = StringEscapeUtils.unescapeHtml4(word).toLowerCase
-				analyzeWord( cleanWord ) match {
-				    case WordSuspect(w)     => ( w, corrector.correct(w) )
-				    case NumberSuspect(n)   => ( n,n )
-				    case CompoundSuspect(c) => ( c, cleanCompound(c) )
-//				    case GibbrishSuspect(g) => cleaned up from the text.
-				}
-    		}
+        for ( word <- elements ) yield (word, cleanSingleElement(word) )
     }
-    
-    val delimiters = "-.,?!:;\"'"
         
     /**
      * Take the compound element and correct only its words
@@ -80,6 +74,15 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
         }
         
         sb.toString
+    }
+    
+    def cleanSingleElement( word:String)  = {
+        analyzeWord( word ) match {
+		    case WordSuspect(w)     => corrector.correct(w)
+		    case NumberSuspect(n)   => n
+		    case CompoundSuspect(c) => cleanCompound(c)
+		    case GibbrishSuspect(g) => "" // ignore these
+		}
     }
     
     def go {
