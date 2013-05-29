@@ -1,0 +1,6 @@
+data-clean/
+.DS_Store
+/data/*
+/code/bin
+/code/.cache
+
