@@ -1,6 +1,6 @@
 package edu.harvard.iq.textcleanup
 import java.nio.file.Path
-import org.apache.commons.lang3.StringEscapeUtils
+import org.apache.commons.lang3.StringEscapeUtils.unescapeHtml4
 import io.Source
 import java.nio.file.Files
 import java.nio.charset.StandardCharsets.UTF_8
@@ -31,35 +31,70 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
     val digitsOnlyRgx = "^[0-9].*$".r
     
     val delimiters = "-.,?!:;\"'"
-  
-    def analyzeWord( s:String ) = {
-    	lettersOnlyRgx.findFirstIn(s) match {
-    		case Some(_) => WordSuspect( s )
-    		case None    => digitsOnlyRgx.findFirstIn(s) match {
-    		    case Some(_) => NumberSuspect(s)
-    		    case None    => atLeastOneLetter.findFirstIn(s) match {
-    		        case Some(_) => CompoundSuspect( s )
-    		        case None    => GibbrishSuspect( s )
-    		    }
-    		}
-    	}
-    }
+        
+    private[this] var input:Iterator[String]=null
     
-    def cleanStream( input:Iterator[String], wordFunc:String=>Unit, eolFunc: ()=>Unit ) {
+    def cleanStream( wordFunc:String=>Unit, eolFunc: ()=>Unit ) {
+        var pCorrected = cleanLine( readNextLine() )
+        
+        while ( input.hasNext ) {
+            var corrected = cleanLine( readNextLine() )
+            
+            // check if merging the last word of pLine with the first word of line makes sense
+            val pLast = pCorrected.last
+            val first = corrected.head
+            val merged = pLast._1.trim + first._1.trim
+            val mergedPair = ( merged, cleanSingleElement(merged) )
+            // for each pair, decide on the difference
+            // go for the option with minimal LD between the original and the corrected
+            if ( mergedPair._1 == mergedPair._2 ) {
+                pCorrected = pCorrected.dropRight(1)
+                pCorrected = pCorrected ++ List(mergedPair)
+                corrected = corrected.drop(1)
+            }
+            
+            // dump pCorrected, maybe with the merged
+            
+            // advance
+        }
     	for ( line <- input ) {
-    	    val canonicalRep = StringEscapeUtils.unescapeHtml4(line).toLowerCase
-    	    for ( (orig,corr) <- cleanLine(canonicalRep.split("\\s+").toList) ) 
+    	    val canonicalRep = unescapeHtml4(line).toLowerCase
+    	    for ( (orig,corr) <- cleanLine(canonicalRep) ) 
     	        wordFunc( corr.asInstanceOf[String] )
     		
     		eolFunc()
     	}
     }
     
+    def propagateLine( line:List[(String,String)], wordFunc:String=>Unit, eolFunc: ()=>Unit ) {
+        for ( (orig,corr) <- line ) wordFunc( corr.asInstanceOf[String] )
+    	eolFunc()
+    }
+    
+    /**
+     * Reads the next line and normalizes it. Takes into account
+     * explicitly hypenated lines (that ends with "-").
+     */
+    def readNextLine() = {
+        var canonicalRep:String = null
+        
+        while ( input.hasNext ) {
+            val line = input.next()
+            canonicalRep = unescapeHtml4(line).toLowerCase.trim
+            // explicitly hyphenated lines (ends with "-")_are eagerly merged here
+            while ( canonicalRep.endsWith("-") && input.hasNext ) {
+                canonicalRep = canonicalRep.dropRight(1) +
+                				unescapeHtml4(input.next()).toLowerCase.trim
+            }   
+        }
+        canonicalRep
+    }
+    
     /**
      * Returns 2-tuples: (initial, corrected)
      */
-    def cleanLine( elements:List[String] ) = {
-        for ( word <- elements ) yield (word, cleanSingleElement(word) )
+    def cleanLine( elements:String ):List[(String,String)] = {
+        (for ( word <- elements.split("\\s+") ) yield (word, cleanSingleElement(word) )).toList
     }
         
     /**
@@ -85,15 +120,26 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
 		}
     }
     
+    def analyzeWord( s:String ) = {
+    	lettersOnlyRgx.findFirstIn(s) match {
+    		case Some(_) => WordSuspect( s )
+    		case None    => digitsOnlyRgx.findFirstIn(s) match {
+    		    case Some(_) => NumberSuspect(s)
+    		    case None    => atLeastOneLetter.findFirstIn(s) match {
+    		        case Some(_) => CompoundSuspect( s )
+    		        case None    => GibbrishSuspect( s )
+    		    }
+    		}
+    	}
+    }
+    
     def go {
         // open output file
         val outWriter = Files.newBufferedWriter( out, UTF_8 )
         val src = Source.fromFile(in.toFile)
-        
-        cleanStream( src.getLines, 
-                	(w)=>{ outWriter.write(w); outWriter.write(" ") },
-                	() =>{ outWriter.write("\n") }
-                )
+        input = src.getLines
+        cleanStream( (w)=>{ outWriter.write(w); outWriter.write(" ") },
+                	 () =>{ outWriter.write("\n") } )
         
         src.close
         outWriter.close
