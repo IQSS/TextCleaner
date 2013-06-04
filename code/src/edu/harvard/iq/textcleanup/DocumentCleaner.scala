@@ -1,117 +1,166 @@
 package edu.harvard.iq.textcleanup
+
 import java.nio.file.Path
-import org.apache.commons.lang3.StringEscapeUtils.unescapeHtml4
-import io.Source
 import java.nio.file.Files
 import java.nio.charset.StandardCharsets.UTF_8
 import java.io._
+import io.Source
+import org.apache.commons.lang3.StringEscapeUtils.unescapeHtml4
 import org.apache.commons.lang3.StringUtils
+import org.apache.lucene.search.spell.LevensteinDistance
+import edu.harvard.iq.textcleanup.RegexUtils._
 
 abstract class StringToken
 case class WordSuspect( w:String ) extends StringToken
 case class NumberSuspect( n:String ) extends StringToken
-case class CompoundSuspect( c:String ) extends StringToken
+case class CompoundSuspect( c:String ) extends StringToken 
 case class GibbrishSuspect( g:String ) extends StringToken
 
 
 /**
  * Takes a document, created a clean version of it.
+ * 
+ * TODO pass single punctuation marks as well
  */
 class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) {
 	/** clean word regex */
-    val lettersOnlyRgx = "^[a-z]+$".r
+    val lettersOnlyRgx = "^[a-zA-Z]+$".r
     /**
      *  strings that match this, are considered to be words, and so passed to 
      *  the spell checker
      */ 
-    val atLeastOneLetter = ".*[a-z].*".r
+    val atLeastOneLetter = ".*[a-zA-Z].*".r
     /**
      * Strings that match this, but not the former are considered to be numbers 
      */
     val digitsOnlyRgx = "^[0-9].*$".r
     
-    val delimiters = "-.,?!:;\"'"
-        
-    private[this] var input:Iterator[String]=null
+    val punctuationRgx = """\p{Punct}""".r
+   
+    val delimiters = "-.,?!:;\"'()"
+     
+    val sentenceTerminators = Set('.','!','?')
     
-    def cleanStream( wordFunc:String=>Unit, eolFunc: ()=>Unit ) {
-        var pCorrected = cleanLine( readNextLine() )
+    val levenstein = new LevensteinDistance
+    
+    private[this] val outWriter = Files.newBufferedWriter( out, UTF_8 )
+    private[this] val src = Source.fromFile(in.toFile)
+    private[this] val tokenStream = new DocumentTokenStream( src.getLines )
+
+    def go {
+    	corrector.reset()
+    	
+        var lastWord:String = null
+        var go = true
         
-        while ( input.hasNext ) {
-            var corrected = cleanLine( readNextLine() )
-            
-            // check if merging the last word of pLine with the first word of line makes sense
-            val pLast = pCorrected.last
-            val first = corrected.head
-            val merged = pLast._1.trim + first._1.trim
-            val mergedPair = ( merged, cleanSingleElement(merged) )
-            // for each pair, decide on the difference
-            // go for the option with minimal LD between the original and the corrected
-            if ( mergedPair._1 == mergedPair._2 ) {
-                pCorrected = pCorrected.dropRight(1)
-                pCorrected = pCorrected ++ List(mergedPair)
-                corrected = corrected.drop(1)
+        // pre-fill lastWord.
+        while ( lastWord == null && go) {
+            tokenStream.next() match {
+                case StringDT(s) => lastWord = s
+                case LineBreakDT() => ()
+                case EndOfFileDT() => go = false
             }
-            
-            // dump pCorrected, maybe with the merged
-            
-            // advance
         }
-    	for ( line <- input ) {
-    	    val canonicalRep = unescapeHtml4(line).toLowerCase
-    	    for ( (orig,corr) <- cleanLine(canonicalRep) ) 
-    	        wordFunc( corr.asInstanceOf[String] )
-    		
-    		eolFunc()
-    	}
+        
+        // iterate over the file, one token at a time
+        while ( go ) {
+            tokenStream.next() match {
+                case StringDT( s ) => { 
+                    if ( lastWord != null ) {
+                        emitWord( cleanSingleElement(lastWord) )
+                    }
+                    lastWord = s
+                }
+                
+	            case LineBreakDT() => {
+	            	if ( lastWord != null && ! lastWord.isEmpty() ) {
+		                if ( sentenceTerminators.contains(lastWord.last) ) {
+		                    // end of paragraph
+		                    emitEOLWord( cleanSingleElement(lastWord) )
+		                    lastWord = null
+		                    
+		                } else {
+		                    if ( punctuationRgx.matches( lastWord.last.toString ) ) {
+		                    	// emit corrected last word
+		                        emitWord( cleanSingleElement(lastWord) )
+		                        lastWord = null
+
+		                    } else {
+			                	// we need to decide whether a word was broken 
+			                    // between the 2 lines.
+			                    val nextToken = tokenStream.next();
+			                    nextToken match {
+			                        case StringDT( ns ) => { 
+			                            val (e, r) = electMergeOrSplit(lastWord, ns)
+			                            emitWord(e)
+			                            r match {
+			                                case None => ()
+			                                case Some(s) => lastWord = s
+			                            }
+			                        }
+			                        case LineBreakDT()  => emitEOLWord( cleanSingleElement(lastWord) ); lastWord = null    // same as paragraph break
+			                        case EndOfFileDT()  => emitEOLWord( cleanSingleElement(lastWord) ); go = false
+			                    }
+		                    }
+		                }
+	            	} else {
+	            	    outWriter.write("\n")
+	            	}
+	            }
+	            
+	            case EndOfFileDT() => go=false
+            }
+        }
+        
+        src.close
+        outWriter.close
     }
     
-    def propagateLine( line:List[(String,String)], wordFunc:String=>Unit, eolFunc: ()=>Unit ) {
-        for ( (orig,corr) <- line ) wordFunc( corr.asInstanceOf[String] )
-    	eolFunc()
+    
+    def �( word:String ) =  {
+        val corrected = cleanSingleElement(word)
+    	( word, 
+    	  1-levenstein.getDistance(word, corrected), // lucene's LD returns between 0: max difference and 1:identical
+    	  corrected )
     }
     
     /**
-     * Reads the next line and normalizes it. Takes into account
-     * explicitly hypenated lines (that ends with "-").
+     * Gets two words. Decides whether it is more likely that
+     * they were separated or really are two words.
+     * The decision is made based on edit distance between
+     * the corrected version and the originals.
+     * A short-circuit don't merge logic is applied when
+     * at least one of the words is pure numbers and the other is not.
+     * 
+     * @return a 2-tuple: ( word-to-emit, word to retain )
      */
-    def readNextLine() = {
-        var canonicalRep:String = null
-        
-        while ( input.hasNext ) {
-            val line = input.next()
-            canonicalRep = unescapeHtml4(line).toLowerCase.trim
-            // explicitly hyphenated lines (ends with "-")_are eagerly merged here
-            while ( canonicalRep.endsWith("-") && input.hasNext ) {
-                canonicalRep = canonicalRep.dropRight(1) +
-                				unescapeHtml4(input.next()).toLowerCase.trim
-            }   
-        }
-        canonicalRep
+    def electMergeOrSplit( w1:String, w2:String ): (String, Option[String]) = {
+    	
+        // short circuit for digit-letter cases
+        val w1IsNum = digitsOnlyRgx.matches( w1 ) 
+    	val w2IsNum = digitsOnlyRgx.matches( w2 )
+    	if ( w1IsNum || w2IsNum ) return ( w1, Some(w2) )
+    	
+		val separates = ( �(w1), �(w2) )
+		val joined = �( w1+w2 )
+		val sepSum = (separates._1._2 + separates._2._2)/2.0
+		
+		if ( joined._2 < sepSum )
+		    ( joined._3, None )
+		else
+		    ( separates._1._3, Some(separates._2._1) )
     }
     
-    /**
-     * Returns 2-tuples: (initial, corrected)
-     */
-    def cleanLine( elements:String ):List[(String,String)] = {
-        (for ( word <- elements.split("\\s+") ) yield (word, cleanSingleElement(word) )).toList
-    }
-        
-    /**
-     * Take the compound element and correct only its words
-     */
-    def cleanCompound( cw:String ) = {
-        val sb = new StringBuilder;
-        val st = new java.util.StringTokenizer( cw, delimiters, true )
-        while ( st.hasMoreTokens ) {
-            val emt = st.nextToken()
-            sb.append( if ( delimiters contains emt ) emt else corrector.correct(emt) )
+    def emitEOLWord( w:String ) = emitWord(w, delimiter="\n" )
+    
+    def emitWord( w:String, delimiter:String=" " ) {
+        if ( w != "" ) {
+            outWriter.write(w)
+            outWriter.write(delimiter)
         }
-        
-        sb.toString
     }
     
-    def cleanSingleElement( word:String)  = {
+    def cleanSingleElement( word:String ):String  = {
         analyzeWord( word ) match {
 		    case WordSuspect(w)     => corrector.correct(w)
 		    case NumberSuspect(n)   => n
@@ -133,17 +182,30 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
     	}
     }
     
-    def go {
-        // open output file
-        val outWriter = Files.newBufferedWriter( out, UTF_8 )
-        val src = Source.fromFile(in.toFile)
-        input = src.getLines
-        cleanStream( (w)=>{ outWriter.write(w); outWriter.write(" ") },
-                	 () =>{ outWriter.write("\n") } )
+    /**
+     * Take the compound element and correct only its words
+     * LATER also consider correcting the entire word, and 
+     *    >> select the most probable solution, based on 
+     *    >> Levenstein Distance (as in the line breaks)
+     */
+    def cleanCompound( cw:String ) = {
+        val sb = new StringBuilder;
+        val st = new java.util.StringTokenizer( cw, delimiters, true )
+        while ( st.hasMoreTokens ) {
+            val emt = st.nextToken()
+            sb.append(  if ( delimiters contains emt )
+                			emt 
+                		else analyzeWord( emt ) match {
+						    case WordSuspect(w)     => corrector.correct(w)
+						    case NumberSuspect(n)   => n
+						    case CompoundSuspect(c) => c
+						    case GibbrishSuspect(g) => "" // ignore these
+						})
+        }
         
-        src.close
-        outWriter.close
+        sb.toString
     }
+    
 }
 
 object TextAnalysis extends App {
@@ -154,4 +216,6 @@ object TextAnalysis extends App {
     println( dc.analyzeWord("hello,") )
     println( dc.analyzeWord("hello-world") )
     println( dc.analyzeWord("...-.---.") )
+    println( dc.analyzeWord(".") )
+    println( dc.analyzeWord("..-,") )
 }
