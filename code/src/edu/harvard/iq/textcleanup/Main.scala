@@ -21,13 +21,14 @@ object Utils {
 }
 
 object Main extends App {
-	import edu.harvard.iq.textcleanup.Utils.makeFileVisitor
 	import edu.harvard.iq.textcleanup.Utils.makeRunnable
 	
 	val dictionaryPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data/Dictionary.csv"
 	val dataPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data/70Election/"
 	val outputPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data-clean/"
-    
+	val maxCount = 2
+	val workerThreadCount = 1
+	
 	println( "Document Cleanup" )
 	println( "Version 0.5" )
 	
@@ -38,7 +39,6 @@ object Main extends App {
   	dictionary.init
   	println("dictionary has %,d words".format(dictionary.words.size) )
 	
-//	val corrector = new WordCorrector(5, dictionary.words )
 	val dataFilePath = FileSystems.getDefault.getPath( dataPath )
 	val correctors = new ThreadLocal[WordCorrector] {
 	    override def initialValue() = {
@@ -47,21 +47,27 @@ object Main extends App {
 	    }
 	}
 	
-	val executorSvc = Executors.newFixedThreadPool(6)
+	val executorSvc = if ( workerThreadCount == 1 ) Executors.newSingleThreadExecutor() 
+						else Executors.newFixedThreadPool(workerThreadCount)
+						
 	var counter = 0l;
-	Files.walkFileTree(dataFilePath, (f:Path) => {
-		if ( f.getFileName().toString.trim.endsWith("txt") ) {
-		    counter += 1
-		    executorSvc.submit(
-		       () => {
-			    	val outFilePath = FileSystems.getDefault.getPath( outputPath ).resolve( f.getFileName() )
-					val docClean = new DocumentCleaner(f, outFilePath, correctors.get )
-					docClean.go
-					println( f.getFileName() + " done" )
-			    })
-	    } 
+	Files.walkFileTree(dataFilePath,
+		new SimpleFileVisitor[Path] {
+	    	override def visitFile( f:Path, attrs: attribute.BasicFileAttributes ) = {
+	    		if ( f.getFileName().toString.trim.endsWith("txt") ) {
+				    counter += 1
+				    executorSvc.submit(
+				       () => {
+					    	val outFilePath = FileSystems.getDefault.getPath( outputPath ).resolve( f.getFileName() )
+							val docClean = new DocumentCleaner(f, outFilePath, correctors.get )
+							docClean.go
+							println( f.getFileName() + " done" )
+					    })
+			    }
+	    		if ( counter >= maxCount ) FileVisitResult.TERMINATE else FileVisitResult.CONTINUE
+	    	}
 	})
-	
+		
 	println( "Submitted %d files".format( counter ) )
 	
 	executorSvc.shutdown()

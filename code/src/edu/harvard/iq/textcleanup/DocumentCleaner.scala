@@ -93,13 +93,13 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
 			                        case StringDT( ns ) => { 
 			                            val (e, r) = electMergeOrSplit(lastWord, ns)
 			                            emitWord(e)
-			                            r match {
-			                                case None => ()
-			                                case Some(s) => lastWord = s
-			                            }
+			                            lastWord = r match {
+						                                case None => null
+						                                case Some(s) => s
+						                            }
 			                        }
-			                        case LineBreakDT()  => emitEOLWord( cleanSingleElement(lastWord) ); lastWord = null    // same as paragraph break
-			                        case EndOfFileDT()  => emitEOLWord( cleanSingleElement(lastWord) ); go = false
+			                        case LineBreakDT() => emitEOLWord( cleanSingleElement(lastWord) ); lastWord = null    // same as paragraph break
+			                        case EndOfFileDT() => emitEOLWord( cleanSingleElement(lastWord) ); go = false
 			                    }
 		                    }
 		                }
@@ -141,14 +141,14 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
     	val w2IsNum = digitsOnlyRgx.matches( w2 )
     	if ( w1IsNum || w2IsNum ) return ( w1, Some(w2) )
     	
-		val separates = ( ¶(w1), ¶(w2) )
+		val separated = ( ¶(w1), ¶(w2) )
 		val joined = ¶( w1+w2 )
-		val sepSum = (separates._1._2 + separates._2._2)/2.0
+		val sepSum = (separated._1._2 + separated._2._2)/2.0
 		
-		if ( joined._2 < sepSum )
+		if ( joined._2 <= sepSum )
 		    ( joined._3, None )
 		else
-		    ( separates._1._3, Some(separates._2._1) )
+		    ( separated._1._3, Some(separated._2._1) )
     }
     
     def emitEOLWord( w:String ) = emitWord(w, delimiter="\n" )
