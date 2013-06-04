@@ -3,6 +3,7 @@ import java.io.File
 import java.nio.file._
 import scala.actors.Futures._
 import scala.actors.Future
+import java.util.concurrent._
 
 object Utils {
 	// usage: iles.walkFileTree(dir.toPath, (f: Path) => println(f))
@@ -13,10 +14,16 @@ object Utils {
 			FileVisitResult.CONTINUE 
 		}
 	}
+	
+	implicit def makeRunnable( f:()=>Any ) = new Runnable {
+	    override def run() = f() 
+	}
 }
 
 object Main extends App {
 	import edu.harvard.iq.textcleanup.Utils.makeFileVisitor
+	import edu.harvard.iq.textcleanup.Utils.makeRunnable
+	
 	val dictionaryPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data/Dictionary.csv"
 	val dataPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data/70Election/"
 	val outputPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data-clean/"
@@ -40,20 +47,24 @@ object Main extends App {
 	    }
 	}
 	
-	val tasks = new collection.mutable.Queue[Future[Any]]
-	
+	val executorSvc = Executors.newFixedThreadPool(6)
+	var counter = 0l;
 	Files.walkFileTree(dataFilePath, (f:Path) => {
 		if ( f.getFileName().toString.trim.endsWith("txt") ) {
-		    tasks += future {
-					    	val outFilePath = FileSystems.getDefault.getPath( outputPath ).resolve( f.getFileName() )
-							val docClean = new DocumentCleaner(f, outFilePath, correctors.get )
-							docClean.go
-							println( f.getFileName() + " done" )
-					    	()
-					    }
+		    counter += 1
+		    executorSvc.submit(
+		       () => {
+			    	val outFilePath = FileSystems.getDefault.getPath( outputPath ).resolve( f.getFileName() )
+					val docClean = new DocumentCleaner(f, outFilePath, correctors.get )
+					docClean.go
+					println( f.getFileName() + " done" )
+			    })
 	    } 
 	})
-	println( "Scheduled %d tasks".format(tasks.size) )
-	scala.actors.Futures.awaitAll(60*60*1000, tasks: _*)
+	
+	println( "Submitted %d files".format( counter ) )
+	
+	executorSvc.shutdown()
+	executorSvc.awaitTermination(3, java.util.concurrent.TimeUnit.HOURS)
 	
 }
