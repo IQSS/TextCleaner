@@ -23,11 +23,12 @@ object Utils {
 object Main extends App {
 	import edu.harvard.iq.textcleanup.Utils.makeRunnable
 	
+	// TODO read from commandline using CliArgs
 	val dictionaryPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data/Dictionary.csv"
 	val dataPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data/70Election/"
 	val outputPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data-clean/"
-	val maxCount = 2
-	val workerThreadCount = 1
+	val maxCount = Integer.MAX_VALUE
+	val workerThreadCount = 6
 	
 	println( "Document Cleanup" )
 	println( "Version 0.5" )
@@ -35,8 +36,6 @@ object Main extends App {
 	println( "Using dictionary:" )
 	println( "\t" + dictionaryPath )
 	val dictionary = new CsvDictionary( dictionaryPath )
-	
-  	dictionary.init
   	println("dictionary has %,d words".format(dictionary.words.size) )
 	
 	val dataFilePath = FileSystems.getDefault.getPath( dataPath )

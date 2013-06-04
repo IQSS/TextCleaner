@@ -9,10 +9,10 @@ import org.apache.lucene.util.BytesRef
  */
 class CsvDictionary( val filePath:String ) {
 	
-  var wordSet : scala.collection.Set[String] = null
+  val wordSet = init()
   def words = wordSet
   
-  def init() {
+  private[this] def init() = {
     import scala.io.Source
     val src = Source.fromFile( filePath, "UTF-8" )
     val workingDict = new collection.mutable.TreeSet[String]
@@ -23,7 +23,7 @@ class CsvDictionary( val filePath:String ) {
     	workingDict += line.toLowerCase
     }
     src.close()
-    wordSet = workingDict.toSet[String]
+    workingDict.toSet[String]
   }
   
 }
