@@ -9,6 +9,11 @@ import org.apache.commons.lang3.StringEscapeUtils.unescapeHtml4
 import org.apache.commons.lang3.StringUtils
 import org.apache.lucene.search.spell.LevensteinDistance
 import edu.harvard.iq.textcleanup.RegexUtils._
+import edu.harvard.iq.textcleanup.documentparser.StringDT
+import edu.harvard.iq.textcleanup.documentparser.LineBreakDT
+import edu.harvard.iq.textcleanup.documentparser.EndOfFileDT
+import edu.harvard.iq.textcleanup.documentparser.DocumentTokenStream
+import edu.harvard.iq.textcleanup.heuristics.SpellCheckersHeuristic
 
 abstract class StringToken
 case class WordSuspect( w:String ) extends StringToken

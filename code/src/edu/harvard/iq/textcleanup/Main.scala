@@ -4,6 +4,7 @@ import java.nio.file._
 import scala.actors.Futures._
 import scala.actors.Future
 import java.util.concurrent._
+import edu.harvard.iq.textcleanup.heuristics.SpellCheckersHeuristic
 
 object Utils {
 	// usage: iles.walkFileTree(dir.toPath, (f: Path) => println(f))
