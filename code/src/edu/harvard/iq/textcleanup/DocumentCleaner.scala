@@ -9,12 +9,9 @@ import org.apache.commons.lang3.StringEscapeUtils.unescapeHtml4
 import org.apache.commons.lang3.StringUtils
 import org.apache.lucene.search.spell.LevensteinDistance
 import edu.harvard.iq.textcleanup.RegexUtils._
-import edu.harvard.iq.textcleanup.documentparser.StringDT
-import edu.harvard.iq.textcleanup.documentparser.LineBreakDT
-import edu.harvard.iq.textcleanup.documentparser.EndOfFileDT
-import edu.harvard.iq.textcleanup.documentparser.DocumentTokenStream
+import edu.harvard.iq.textcleanup.documentparser._
 import edu.harvard.iq.textcleanup.heuristics.SpellCheckersHeuristic
-
+import edu.harvard.iq.textcleanup.heuristics.FixSuggestion
 abstract class StringToken
 case class WordSuspect( w:String ) extends StringToken
 case class NumberSuspect( n:String ) extends StringToken
@@ -27,7 +24,7 @@ case class GibbrishSuspect( g:String ) extends StringToken
  * 
  * TODO pass single punctuation marks as well
  */
-class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) {
+class DocumentCleaner( val corrector:WordCorrector ) {
 	/** clean word regex */
     val lettersOnlyRgx = "^[a-zA-Z]+$".r
     /**
@@ -48,54 +45,62 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
     
     val levenstein = new LevensteinDistance
     
-    private[this] val outWriter = Files.newBufferedWriter( out, UTF_8 )
-    private[this] val src = Source.fromFile(in.toFile)
-    private[this] val tokenStream = new DocumentTokenStream( src.getLines )
+    var outWriter:BufferedWriter
+    var stats:DocumentStatistics
 
-    def go {
-    	corrector.reset()
+    def go( in:Path, out:Path ) = {
+    	val src = Source.fromFile(in.toFile)
+    	val lines = src.getLines().toList
+    	src.close()
     	
-        var lastWord:String = null
+    	stats = new DocumentStatistics(in, out)
+    	stats.maxOriginalLineLength = lines.map( _.length ).max
+    	
+    	val tokenStream = new DocumentTokenStream( lines.iterator )
+    	
+    	outWriter = Files.newBufferedWriter( out, UTF_8 )
+        var lastWord:StringDT = null
         var go = true
         
         // pre-fill lastWord.
         while ( lastWord == null && go) {
             tokenStream.next() match {
-                case StringDT(s) => lastWord = s
-                case LineBreakDT() => ()
-                case EndOfFileDT() => go = false
+                case StringDT(p, s) => lastWord = StringDT(p,s)
+                case LineBreakDT(p) => ()
+                case EndOfFileDT(p) => go = false
             }
         }
         
         // iterate over the file, one token at a time
         while ( go ) {
             tokenStream.next() match {
-                case StringDT( s ) => { 
+                case StringDT( p, s ) => { 
                     if ( lastWord != null ) {
+                        
                         emitWord( cleanSingleElement(lastWord) )
                     }
-                    lastWord = s
+                    lastWord = StringDT(p,s)
                 }
                 
-	            case LineBreakDT() => {
-	            	if ( lastWord != null && ! lastWord.isEmpty() ) {
-		                if ( sentenceTerminators.contains(lastWord.last) ) {
+	            case LineBreakDT(p) => {
+	            	if ( lastWord != null && ! lastWord.str.isEmpty() ) {
+		                if ( sentenceTerminators.contains(lastWord.str.last) ) {
 		                    // end of paragraph
-		                    emitEOLWord( cleanSingleElement(lastWord) )
+		                    emitEOLWord( cleanSingleElement(lastWord.str) )
 		                    lastWord = null
 		                    
 		                } else {
-		                    if ( punctuationRgx.matches( lastWord.last.toString ) ) {
+		                    if ( punctuationRgx.matches( lastWord.str.last.toString ) ) {
 		                    	// emit corrected last word
 		                        emitWord( cleanSingleElement(lastWord) )
 		                        lastWord = null
 
 		                    } else {
 			                	// we need to decide whether a word was broken 
-			                    // between the 2 lines.
+			                    // between the two lines.
 			                    val nextToken = tokenStream.next();
 			                    nextToken match {
-			                        case StringDT( ns ) => { 
+			                        case StringDT( p, ns ) => { 
 			                            val (e, r) = electMergeOrSplit(lastWord, ns)
 			                            emitWord(e)
 			                            lastWord = r match {
@@ -103,22 +108,23 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
 						                                case Some(s) => s
 						                            }
 			                        }
-			                        case LineBreakDT() => emitEOLWord( cleanSingleElement(lastWord) ); lastWord = null    // same as paragraph break
-			                        case EndOfFileDT() => emitEOLWord( cleanSingleElement(lastWord) ); go = false
+			                        case LineBreakDT(p) => emitEOLWord( cleanSingleElement(lastWord) ); lastWord = null    // same as paragraph break
+			                        case EndOfFileDT(p) => emitEOLWord( cleanSingleElement(lastWord) ); go = false
 			                    }
 		                    }
 		                }
 	            	} else {
-	            	    outWriter.write("\n")
+	            	    emitEOL
 	            	}
 	            }
 	            
-	            case EndOfFileDT() => go=false
+	            case EndOfFileDT(p) => go=false
             }
         }
         
-        src.close
         outWriter.close
+        
+        stats
     }
     
     
@@ -127,6 +133,10 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
     	( word, 
     	  1-levenstein.getDistance(word, corrected), // lucene's LD returns between 0: max difference and 1:identical
     	  corrected )
+    }
+    
+    def bestFixFor( word:String ) : FixSuggestion = {
+        corrector.correct(word)
     }
     
     /**
@@ -156,6 +166,7 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
 		    ( separated._1._3, Some(separated._2._1) )
     }
     
+    def emitEOL = emitEOLWord( "" )
     def emitEOLWord( w:String ) = emitWord(w, delimiter="\n" )
     
     def emitWord( w:String, delimiter:String=" " ) {
@@ -163,6 +174,18 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
             outWriter.write(w)
             outWriter.write(delimiter)
         }
+    }
+    
+    /**
+     * Gets a raw token, 
+     */
+    def classifyToken( sdt:StringDT ) = {
+    	if ( false /*dict contains w or w is a single punct, or a number*/ )
+    	    Pass( sdt )
+    	else corrector.correct( sdt.str ) match {
+    	    case None     => Unfixable( sdt )
+    	    case Some(fs) => Fixable( sdt, fs ) 
+    	}
     }
     
     def cleanSingleElement( word:String ):String  = {
@@ -212,6 +235,18 @@ class DocumentCleaner( val in:Path, val out:Path, val corrector:WordCorrector ) 
     }
     
 }
+
+/** 
+ *  Classification of a {@link StringDT}, regarding its
+ *  fixability, if at all needed.
+ */
+abstract class ClassifiedToken {
+    val token:StringDT
+}
+case class Pass( token:StringDT ) extends ClassifiedToken
+case class Fixable( token:StringDT, fix:FixSuggestion ) extends ClassifiedToken
+case class Unfixable( token:StringDT ) extends ClassifiedToken
+
 
 object TextAnalysis extends App {
     val dc = new DocumentCleaner( null, null, null )
