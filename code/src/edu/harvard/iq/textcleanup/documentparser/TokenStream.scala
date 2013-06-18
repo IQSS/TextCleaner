@@ -39,6 +39,19 @@ class DocumentTokenStream( val in:Iterator[String] ) {
 	    buffer.dequeue()
     }
 	
+	def peek = {
+	    if ( ! buffer.isEmpty ) {
+	        buffer(0)
+	    } else {
+		     if ( in.hasNext ) {
+		        fillBuffer()
+		        buffer(0)
+		    } else {
+		    	EndOfFileDT( OriginalPosition(line,0,0) )
+		    }
+	    } 
+	}
+	
 	private def fillBuffer() {
 	    // read next line
 	    buffer ++= readNextLine()
@@ -100,7 +113,7 @@ class DocumentTokenStream( val in:Iterator[String] ) {
 	private def isBufferExplicitlyHyphenated = {
 	    lastStringDT match {
 	        case None => false
-	        case Some(sdt) => sdt.str.endsWith("-")
+	        case Some(sdt) => sdt.text.endsWith("-")
 	    }
 	}
 	

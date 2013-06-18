@@ -21,11 +21,11 @@ case class LineBreakDT(pos:OriginalPosition) extends DocumentToken
 
 case class EndOfFileDT(pos:OriginalPosition) extends DocumentToken
 
-case class StringDT(pos:OriginalPosition, str:String ) extends DocumentToken {
+case class StringDT(pos:OriginalPosition, text:String ) extends DocumentToken {
     def mergeForward( next:StringDT ) = {
         StringDT( OriginalPosition(pos.line, 
                 					pos.start, 
                 					pos.length + next.pos.length + (if(pos.line != next.pos.line) next.pos.start else 0) ),
-                	str + next.str);
+                	text + next.text);
     }
 }

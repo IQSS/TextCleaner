@@ -14,9 +14,21 @@ class DocumentStatistics( val original:Path, val fixed:Path ) {
     var originalLength = 0L
     var maxOriginalLineLength = 0
     var originalWordCount = 0L
-    var unfixableWordCount = 0L
     
-    def addFix( fix:FixSuggestion ) = {
+    var unfixableTokens = 0L
+    var passedTokens = 0L
+    var fixedTokens = 0L
+    
+    def update( ct:ClassifiedToken ) = {
+        ct match {
+            case Pass(t)      => passedTokens += 1
+            case Fixable(t,f) => fixedTokens += 1; add( f )
+            case Unfixable(t) => unfixableTokens += 1
+        }
+        this
+    }
+    
+    def add( fix:FixSuggestion ) = {
         _fixes += fix
     }
     

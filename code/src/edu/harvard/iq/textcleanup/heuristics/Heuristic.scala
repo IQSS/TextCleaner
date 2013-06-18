@@ -3,7 +3,7 @@ package edu.harvard.iq.textcleanup.heuristics
 class FixSuggestion( val original:String, 
         			 val suggestion:String, 
         			 val heuristic:Heuristic ) {
-    var dist:Option[Int] = None;
+    private var dist:Option[Int] = None;
     
     def editDistance:Int = {
         dist match {
