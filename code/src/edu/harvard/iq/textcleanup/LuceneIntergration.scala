@@ -5,11 +5,11 @@ import org.apache.lucene.util.BytesRefIterator
 import org.apache.lucene.util.BytesRef
 
 /**
- * The dictionary we use to clean the texts with
+ * All one needs to load a CSV file and use it as a dictionary in Lucene
  */
 class CsvDictionary( val filePath:String ) {
 	
-  val wordSet = init()
+  private val wordSet = init()
   def words = wordSet
   
   private[this] def init() = {

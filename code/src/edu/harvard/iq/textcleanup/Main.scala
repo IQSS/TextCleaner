@@ -30,6 +30,7 @@ object Main extends App {
 	val outputPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data-clean/"
 	val maxCount = Integer.MAX_VALUE
 	val workerThreadCount = 6
+	val SPELL_CHECKER_DIST = 5
 	
 	println( "Document Cleanup" )
 	println( "Version 0.5" )
@@ -43,7 +44,9 @@ object Main extends App {
 	val correctors = new ThreadLocal[WordCorrector] {
 	    override def initialValue() = {
 	        println("Inited dictionary")
-	        new WordCorrector(5, dictionary.words )
+	        val wc = new WordCorrector()
+	        wc.add( new SpellCheckersHeuristic( SPELL_CHECKER_DIST, dictionary.words) );
+	        wc
 	    }
 	}
 	
@@ -59,9 +62,9 @@ object Main extends App {
 				    executorSvc.submit(
 				       () => {
 					    	val outFilePath = FileSystems.getDefault.getPath( outputPath ).resolve( f.getFileName() )
-							val docClean = new DocumentCleaner(f, outFilePath, correctors.get )
-							docClean.go
-							println( f.getFileName() + " done" )
+							val docCleaner = new DocumentCleaner( dictionary.words, correctors.get )
+							val stats = docCleaner.go( f, outFilePath )
+							println( stats )
 					    })
 			    }
 	    		if ( counter >= maxCount ) FileVisitResult.TERMINATE else FileVisitResult.CONTINUE

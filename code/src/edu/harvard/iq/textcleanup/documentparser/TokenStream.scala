@@ -25,7 +25,8 @@ class DocumentTokenStream( val in:Iterator[String] ) {
 	 *   only of numbers and characters, and contain both 
 	 */ // TODO move to the cleaner
     val alphaNumericRgx = """(\p{Alpha}+\d+)+\p{Alpha}*|(\d+\p{Alpha}+)+\d*""".r
-    
+    private val explicitHyphenation = """\w-$""".r
+
 	private val EOL_MARKER = ""
 	
     def next():DocumentToken = {
@@ -60,12 +61,14 @@ class DocumentTokenStream( val in:Iterator[String] ) {
 	    while ( isBufferExplicitlyHyphenated && in.hasNext ) {
 	        var nextLineTkns = readNextLine()
 	        if ( nextLineTkns(0).isInstanceOf[StringDT] ) {
-	            val lastStringDt = lastStringDT match { case Some(s) => s; case None => null } 
+	            val lastStringDt = lastStringDtOpt match { case Some(s) => s; case None => null } 
 	            
-	            // remove tokens up to and including lastStringDT
-	            buffer = buffer.reverse.dropWhile( _ != lastStringDT ).reverse
+	            // remove tokens up to and including lastStringDt
+	            buffer = buffer.reverse.dropWhile( _ != lastStringDt ).drop(1).reverse
 	            // merge last string dt and the first of next line tokens
-	            val dehyphed = lastStringDt.mergeForward( nextLineTkns(0).asInstanceOf[StringDT] )
+	            val fixedLastStringDt = lastStringDt.copy(text=lastStringDt.text.dropRight(1))
+	            
+	            val dehyphed = fixedLastStringDt.mergeForward( nextLineTkns(0).asInstanceOf[StringDT] )
 	            // put all in queue
 	        	
 	        	buffer += dehyphed
@@ -99,7 +102,7 @@ class DocumentTokenStream( val in:Iterator[String] ) {
 	    parsedLine
 	}
 	
-	private def lastStringDT: Option[StringDT] = {
+	private def lastStringDtOpt: Option[StringDT] = {
 	    for ( dt <- buffer.reverseIterator ) {
 	        if ( dt.isInstanceOf[StringDT] ) return Some(dt.asInstanceOf[StringDT] )
 	    }
@@ -111,9 +114,12 @@ class DocumentTokenStream( val in:Iterator[String] ) {
 	 * ends with "-"
 	 */
 	private def isBufferExplicitlyHyphenated = {
-	    lastStringDT match {
+	    lastStringDtOpt match {
 	        case None => false
-	        case Some(sdt) => sdt.text.endsWith("-")
+	        case Some(sdt) => explicitHyphenation.findFirstIn(sdt.text) match {
+	            case None    => false
+	            case Some(_) => true
+	        }
 	    }
 	}
 	
@@ -147,8 +153,9 @@ class DocumentTokenStream( val in:Iterator[String] ) {
 
 object DTS_Test extends App {
     val input = List( ("simple", Array("hello world this is line 1", "this is a line with &#39; escapes", "I'm a hyphen-","ated line, so need to", "see if that works" )),
-            		  ("double-hyph", Array("this line conca-","tenates to the next li-","nie, which contac-","ts even more") ),
+            		  ("double-hyph", Array("this line conca-","tenates to the next li-","ne, which contac-","ts even more") ),
             		  ("end-hyph", Array("line line line-") ),
+            		  ("false-hyph", Array("the following line ends with a '-'", "but shouldn't be de-hyphenated:","in the span 1998 -", " 1989 there was a thing") ),
             		  ("with empty", Array("line line","","line line line","") ),
             		  ("with empty hyp", Array("line li-","","ne") ),
             		  ("real", Array("HISSED HIS MIKE.",

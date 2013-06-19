@@ -56,9 +56,9 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
     val paragraphBreakWidthThreshold = 0.7
     val levenstein = new LevensteinDistance
     
-    var outWriter:BufferedWriter
-    var stats:DocumentStatistics
-    var lineHasPreviousWord = false
+    private var outWriter:BufferedWriter = null
+    private var stats:DocumentStatistics = null
+    private var lineHasPreviousWord = false
 
     def go( in:Path, out:Path ) = {
     	val src = Source.fromFile(in.toFile)

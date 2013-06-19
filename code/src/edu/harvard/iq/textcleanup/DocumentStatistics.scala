@@ -41,4 +41,9 @@ class DocumentStatistics( val original:Path, val fixed:Path ) {
         val fixes = _fixes.map( _.editDistance ).sum
         1.0 - fixes.asInstanceOf[Double]/originalLength
     }
+    
+    override def toString = {
+        "[Stats in:%s pass:%,d fixed:%,d unfixable:%,d score:%g]".
+        		format( original.getFileName(), passedTokens, fixedTokens, unfixableTokens, score)
+    }
 }
