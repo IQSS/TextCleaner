@@ -12,6 +12,8 @@ import edu.harvard.iq.textcleanup.RegexUtils._
 import edu.harvard.iq.textcleanup.documentparser._
 import edu.harvard.iq.textcleanup.heuristics.SpellCheckersHeuristic
 import edu.harvard.iq.textcleanup.heuristics.FixSuggestion
+import org.apache.commons.lang3.StringEscapeUtils.unescapeHtml4
+
 abstract class StringToken
 case class WordSuspect( w:String ) extends StringToken
 case class NumberSuspect( n:String ) extends StringToken
@@ -53,7 +55,7 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
     val delimiters = "-.,?!:;\"'()"
      
     val sentenceTerminators = Set('.','!','?')
-    val paragraphBreakWidthThreshold = 0.7
+    val paragraphBreakWidthThreshold = 0.6
     val levenstein = new LevensteinDistance
     
     private var outWriter:BufferedWriter = null
@@ -63,11 +65,12 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
     def go( in:Path, out:Path ) = {
     	val src = Source.fromFile(in.toFile)
     	// Read the entire file to get some stats.
-    	val lines = src.getLines().toList
+    	val lines = src.getLines().map( unescapeHtml4(_) ).toList
     	src.close()
     	
     	stats = new DocumentStatistics(in, out)
     	stats.maxOriginalLineLength = lines.map( _.length ).max
+    	val paragraphBreakThreshold = stats.maxOriginalLineLength*paragraphBreakWidthThreshold
     	
     	val tokenStream = new DocumentTokenStream( lines.iterator )
     	
@@ -87,7 +90,6 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
             }
         }
         
-    	def lastWordIsValid = prevStringDT!=null && !prevStringDT.text.isEmpty()
     	def endParagraph = { emitToken(prevStringDT); 
     						 writeEOL; 
     						 prevStringDT=null }
@@ -95,20 +97,20 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
         // iterate over the file, one token at a time
         while ( go ) {
             tokenStream.next() match {
-                case StringDT( p, s ) => { 
+                case sdt@StringDT( p, s ) => { 
                     // Simple case: Another word. Clean and write previous word.
                     if ( prevStringDT != null ) {
                         emitToken( prevStringDT )
                     }
-                    prevStringDT = StringDT(p,s)
+                    prevStringDT = sdt
                 }
                 
 	            case LineBreakDT(p) => {
 	                // A paragraph break, a line break, or part of a sequence of empty lines.
-	            	if ( lastWordIsValid ) {
+	            	if ( prevStringDT!=null && !prevStringDT.text.isEmpty() ) {
 	            		// end of paragraph?
 		                if ( sentenceTerminators.contains(prevStringDT.text.last) ||
-		                        p.start < stats.maxOriginalLineLength * paragraphBreakWidthThreshold ) {
+		                        (p.start+p.length) < paragraphBreakThreshold ) {
 		                    endParagraph
 		                    
 		                } else {
@@ -145,7 +147,7 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
         }
         
         outWriter.close
-        
+        stats.originalLength = tokenStream.totalLength
         stats
     }
     
@@ -164,9 +166,10 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
         }									
         
         ( merged, original ) match {
-        	case ( Pass(_),      (_,_) ) => true
-        	case ( Unfixable(_), (_,_) ) => false
-        	case ( m@Fixable(_,_), pair ) => m.fix.editDistance < editDist(pair._1) + editDist( pair._2 )
+        	case ( Pass(_),        ( _, _) ) => true
+        	case ( Fixable(_,s),   ( _, _) ) if s.editDistance==0 => true
+        	case ( Unfixable(_),   ( _, _) ) => false
+        	case ( m@Fixable(_,_), (t1,t2) ) => m.fix.editDistance < editDist(t1) + editDist( t2 )
         }
         
     }
@@ -184,7 +187,7 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
      * Calculate the fixability of a single StringDT. 
      */
     def classifyToken( sdt:StringDT ) = {
-    	if ( vocabulary contains sdt.text )
+    	if ( sdt.textCore.isEmpty || (vocabulary contains sdt.textCore.toLowerCase) )
     	    Pass( sdt )
     	else corrector.correct( sdt.text ) match {
     	    case None     => Unfixable( sdt )

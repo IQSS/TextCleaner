@@ -33,7 +33,12 @@ class WordCorrector() {
             None
             
         } else {
-            val sgst = sgsts.maxBy( -_.editDistance )
+            val sgstSet = sgsts.groupBy( _.editDistance ).minBy( _._1 )._2
+            if ( sgstSet.size > 1 ) {
+                println("Multiple options for '%s'".format(word) )
+                sgstSet.foreach( println(_) )
+            }
+            val sgst = sgstSet.toList(0)
     		Some(new FixSuggestion(sgst.original,
     				wordCase(sgst.suggestion),
     				sgst.heuristic

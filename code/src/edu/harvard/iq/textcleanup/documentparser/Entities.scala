@@ -14,18 +14,39 @@ object OriginalPosition {
 /**
  * Base class for what the document scanner emits to the application.
  */
-abstract class DocumentToken {
+sealed abstract class DocumentToken {
     val pos:OriginalPosition
 }
 case class LineBreakDT(pos:OriginalPosition) extends DocumentToken
 
 case class EndOfFileDT(pos:OriginalPosition) extends DocumentToken
 
-case class StringDT(pos:OriginalPosition, text:String ) extends DocumentToken {
+case class StringDT(pos:OriginalPosition, text:String ) extends DocumentToken { 
     def mergeForward( next:StringDT ) = {
         StringDT( OriginalPosition(pos.line, 
                 					pos.start, 
                 					pos.length + next.pos.length + (if(pos.line != next.pos.line) next.pos.start else 0) ),
                 	text + next.text);
     }
+    
+    /**
+     * The part of the token, from the first letter to the last (inclusive).
+     */
+    def makeTextCore = text.dropWhile( ! Character.isLetter(_) ).reverse.dropWhile( !Character.isLetter(_) ).reverse
+    
+    private var _textCore:(()=>String) = { 
+        val c=text.dropWhile( ! Character.isLetter(_) ).reverse.dropWhile( !Character.isLetter(_) ).reverse
+        _textCore = ()=>{c}
+        _textCore
+       }
+    
+    def textCore = _textCore()
+}
+
+
+object EntitiesTest extends App {
+    val sdt1 = StringDT( OriginalPosition(1,2,10), "!!Hello!!!")
+    println( sdt1.textCore )
+    println( sdt1.textCore )
+    println( sdt1.textCore )
 }

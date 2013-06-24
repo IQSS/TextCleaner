@@ -12,6 +12,16 @@ class FixSuggestion( val original:String,
                 			  editDistance } 
         }
     }
+    
+    override def toString = "[FixSuggestion: '%s' -> '%s']".format( original, suggestion)
+}
+
+object FixSuggestion {
+    def apply( original:String, suggestion:String, heuristic:Heuristic  ) = {
+        new FixSuggestion(original, suggestion, heuristic )
+    }
+    
+    def unapply( fs: FixSuggestion ) = ( fs.original, fs.suggestion, fs.heuristic )
 }
 
 /**
@@ -19,4 +29,5 @@ class FixSuggestion( val original:String,
  */
 trait Heuristic {
 	def suggest( raw:String ): Option[String]
+	def title = getClass.getName.split("\\.").last
 }

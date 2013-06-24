@@ -55,7 +55,8 @@ class SpellCheckersHeuristic( val dist:Int, words:collection.Set[String] ) exten
 	    	Some( wordScore.maxBy( _._2 )._1 )
 	    }
 	}
-
+	 
+	 override def title = "SpellCheckersHeuristic (dist:%d)".format( dist )
 }
 
 

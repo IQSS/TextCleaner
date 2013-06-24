@@ -18,7 +18,7 @@ import scala.Array.canBuildFrom
  */
 class DocumentTokenStream( val in:Iterator[String] ) {
 	var buffer = new collection.mutable.Queue[ DocumentToken ]
-	var line = 0
+	var lineNumber = 0
 	var totalLength = 0L
 	
 	/** Matches strings that consist
@@ -30,14 +30,16 @@ class DocumentTokenStream( val in:Iterator[String] ) {
 	private val EOL_MARKER = ""
 	
     def next():DocumentToken = {
-	    if ( buffer.isEmpty ) {
+	    if ( ! buffer.isEmpty ) {
+	        buffer.dequeue()
+	    } else {
 		     if ( in.hasNext ) {
 		        fillBuffer()
+		        buffer.dequeue()
 		    } else {
-		    	return EndOfFileDT( OriginalPosition(line,0,0) )
+		    	EndOfFileDT( OriginalPosition(lineNumber,0,0) )
 		    }
-	    } 
-	    buffer.dequeue()
+	    }
     }
 	
 	def peek = {
@@ -48,7 +50,7 @@ class DocumentTokenStream( val in:Iterator[String] ) {
 		        fillBuffer()
 		        buffer(0)
 		    } else {
-		    	EndOfFileDT( OriginalPosition(line,0,0) )
+		    	EndOfFileDT( OriginalPosition(lineNumber,0,0) )
 		    }
 	    } 
 	}
@@ -84,20 +86,21 @@ class DocumentTokenStream( val in:Iterator[String] ) {
 	 * Empty tokens are filtered out, but their position an length are taken into account. 
 	 */
 	private def readNextLine() = {
-	    line += 1
+	    lineNumber += 1
 	    var pos = 1;
 	    val parsedLine = new collection.mutable.MutableList[DocumentToken];
 	    val rawLine = in.next()
 	    totalLength += rawLine.length
+	    if ( in.hasNext ) totalLength += 1
 	    
-	    for ( tkn <- rawLine.split("\\s") ) yield {
+	    for ( tkn <- rawLine.split("\\s") ) {
 	        if ( tkn.length > 0 ) {
-	        	parsedLine += StringDT( OriginalPosition(line, pos, tkn.length ),
+	        	parsedLine += StringDT( OriginalPosition(lineNumber, pos, tkn.length ),
 	        	        				if ( tkn.contains("&") ){ unescapeHtml4(tkn) } else { tkn } )
 	        }
 	        pos += (tkn.length + 1)
 	    }
-	    parsedLine += LineBreakDT( OriginalPosition(line, pos, 1) )
+	    parsedLine += LineBreakDT( OriginalPosition(lineNumber, pos, 1) )
 	    
 	    parsedLine
 	}
@@ -176,7 +179,7 @@ object DTS_Test extends App {
 	    while ( go ) {
 	        sut.next() match {
 	            case StringDT( p, s ) => print( "[%s]".format(s) )
-	            case LineBreakDT(p) => println()
+	            case LineBreakDT(p) => println( "/line break/")
 	            case EndOfFileDT(p) => go=false; println("/end")
 	        }
 	    }
