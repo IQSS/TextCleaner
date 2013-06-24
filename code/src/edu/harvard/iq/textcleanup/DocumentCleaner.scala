@@ -25,11 +25,11 @@ case class GibbrishSuspect( g:String ) extends StringToken
  *  Classification of a {@link StringDT}, regarding its
  *  fixability, if at all needed.
  */
-abstract class ClassifiedToken {
+sealed abstract class ClassifiedToken {
     val stringDT:StringDT
 }
 case class Pass(      stringDT:StringDT ) extends ClassifiedToken
-case class Fixable(   stringDT:StringDT, fix:FixSuggestion ) extends ClassifiedToken
+case class Fixable(   stringDT:StringDT, fix:FixSuggestion, alternatives:Seq[FixSuggestion] ) extends ClassifiedToken
 case class Unfixable( stringDT:StringDT ) extends ClassifiedToken
 
 /**
@@ -161,15 +161,15 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
         
         def editDist( c: ClassifiedToken ) = c match {
             case Pass(_) => 0
-            case Fixable(_,f) => f.editDistance
             case Unfixable(_) => Int.MaxValue
+            case Fixable(_,f,_) => f.editDistance
         }									
         
         ( merged, original ) match {
-        	case ( Pass(_),        ( _, _) ) => true
-        	case ( Fixable(_,s),   ( _, _) ) if s.editDistance==0 => true
-        	case ( Unfixable(_),   ( _, _) ) => false
-        	case ( m@Fixable(_,_), (t1,t2) ) => m.fix.editDistance < editDist(t1) + editDist( t2 )
+        	case ( Pass(_),          ( _, _) ) => true
+        	case ( Fixable(_,s,_),   ( _, _) ) if s.editDistance==0 => true
+        	case ( Unfixable(_),     ( _, _) ) => false
+        	case ( m@Fixable(_,_,_), (t1,t2) ) => m.fix.editDistance < editDist(t1) + editDist( t2 )
         }
         
     }
@@ -178,7 +178,7 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
         val classified = classifyToken( sdt )
         stats.update( classified )
         writeWord( classified match {
-            case Fixable( s, t ) => t.suggestion
+            case Fixable( s, t, _ ) => t.suggestion
             case _ =>  classified.stringDT.text
         } )
     }
@@ -190,8 +190,8 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
     	if ( sdt.textCore.isEmpty || (vocabulary contains sdt.textCore.toLowerCase) )
     	    Pass( sdt )
     	else corrector.correct( sdt.text ) match {
-    	    case None     => Unfixable( sdt )
-    	    case Some(fs) => Fixable( sdt, fs ) 
+    	    case Nil     => Unfixable( sdt )
+    	    case best :: alts => Fixable( sdt, best, alts ) 
     	}
     }
         

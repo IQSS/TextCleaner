@@ -25,12 +25,19 @@ class TextDocumentStatisticsWriter( val rootFolder:Path ) {
         out.println( "Fixed\t%s".format(stats.fixedTokens) )
         out.println( "Unfixable\t%s".format(stats.unfixableTokens) )
         out.println( "Original length\t%d".format(stats.originalLength) )
-        out.println( "Total Levenshtein dist\t%d".format( stats.allFixes.map(_.editDistance).sum) )
+        out.println( "Total Levenshtein dist\t%d".format( stats.allFixes.map(_.chosen.editDistance).sum) )
         
         out.println( "# Fixes" )
         out.println( "Original\tFix\tHeuristic")
         stats.allFixes.foreach( f => {
-          out.println( "%s\t%s\t%s".format(f.original, f.suggestion, f.heuristic.title) )  
+            val chosen = f.chosen
+            out.println( "%s\t%s\t%s".format(chosen.original, chosen.suggestion, chosen.heuristic.title) )
+            if ( f.alternatives.nonEmpty ) {
+                out.println( " # alternatives" )
+                for ( alt <- f.alternatives ) { 
+                	out.println( "\t%s\t%s".format(alt.suggestion, alt.heuristic.title) )
+                }
+            }
         })
         
         out.close()

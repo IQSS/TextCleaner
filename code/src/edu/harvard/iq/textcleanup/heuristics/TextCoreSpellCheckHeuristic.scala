@@ -21,8 +21,8 @@ class TextCoreSpellCheckHeuristic( val corrector:WordCorrector) extends Heuristi
         
         val fixList = partList.map( part =>
         	if ( isLetter(part(0)) ) corrector.correct(part) match {
-        	    case None     => part
-        	    case Some(fs) => fs.suggestion 
+        	    case Nil    => part
+        	    case b :: r => b.suggestion 
         	} else {
         	    part
         	}

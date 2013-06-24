@@ -17,7 +17,7 @@ class WordCorrector() {
     /** The set of heuristics we consult. */
     private[this] var heuristics = Set[Heuristic]()
     
-    def correct( word:String ) : Option[FixSuggestion] = {
+    def correct( word:String ) : Seq[FixSuggestion] = {
         // fold case
         val wordCase   = WordCase( word )
         val foldedWord = word.toLowerCase()
@@ -30,19 +30,11 @@ class WordCorrector() {
 				        })
         
 		if ( sgsts.isEmpty ) {
-            None
+            Seq()
             
         } else {
             val sgstSet = sgsts.groupBy( _.editDistance ).minBy( _._1 )._2
-            if ( sgstSet.size > 1 ) {
-                println("Multiple options for '%s'".format(word) )
-                sgstSet.foreach( println(_) )
-            }
-            val sgst = sgstSet.toList(0)
-    		Some(new FixSuggestion(sgst.original,
-    				wordCase(sgst.suggestion),
-    				sgst.heuristic
-    			))
+            sgstSet.toList // TODO apply something more intelligent
         }
     }
     
