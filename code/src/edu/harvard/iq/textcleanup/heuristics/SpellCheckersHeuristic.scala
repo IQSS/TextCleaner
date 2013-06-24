@@ -42,17 +42,14 @@ class SpellCheckersHeuristic( val dist:Int, words:collection.Set[String] ) exten
 	    for ( checker <- checkers ) {
 		  	val options = checker.suggestSimilar( word, dist );
 		  	for ( (word,score) <- options.zip( (0 until dist).reverse ) ) {
-		  	    wordScore(word) = wordScore.get(word) match {
-		  	    	case None            => score
-		  	    	case Some(prevScore) => prevScore+score 
-		  	    }
+		  	    wordScore(word) = score + wordScore.getOrElse(word, 0)
 		  	}
 	  	}
 	    
 	    if ( wordScore.isEmpty ) {
-	        None
+	        Nil
 	    } else {
-	    	Some( wordScore.maxBy( _._2 )._1 )
+	    	wordScore.groupBy( _._2).maxBy( _._1 )._2.map( _._1 ).toList
 	    }
 	}
 	 

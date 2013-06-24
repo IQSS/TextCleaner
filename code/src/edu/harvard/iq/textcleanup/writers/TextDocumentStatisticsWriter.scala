@@ -33,7 +33,6 @@ class TextDocumentStatisticsWriter( val rootFolder:Path ) {
             val chosen = f.chosen
             out.println( "%s\t%s\t%s".format(chosen.original, chosen.suggestion, chosen.heuristic.title) )
             if ( f.alternatives.nonEmpty ) {
-                out.println( " # alternatives" )
                 for ( alt <- f.alternatives ) { 
                 	out.println( "\t%s\t%s".format(alt.suggestion, alt.heuristic.title) )
                 }

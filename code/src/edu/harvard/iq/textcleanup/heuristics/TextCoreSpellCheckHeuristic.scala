@@ -9,8 +9,8 @@ import java.lang.Character.isLetter
  */
 class TextCoreSpellCheckHeuristic( val corrector:WordCorrector) extends Heuristic {
 	
-    override def suggest( token:String ) : Option[String] = {
-        if ( token.forall(isLetter(_)) ) return None
+    override def suggest( token:String ) : List[String] = {
+        if ( token.forall(isLetter(_)) ) return Nil
         
         val partList = token.foldLeft[List[String]](Nil)( (l,c) => l match {
             case Nil => c.toString :: Nil
@@ -28,9 +28,7 @@ class TextCoreSpellCheckHeuristic( val corrector:WordCorrector) extends Heuristi
         	}
         )
         
-        Some(fixList.mkString)
+        fixList.mkString :: Nil
     }
-    
-    override def toString = this.getClass.getName.split("\\.").last
     
 }
