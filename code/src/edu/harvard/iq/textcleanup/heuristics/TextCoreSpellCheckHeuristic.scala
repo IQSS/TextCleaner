@@ -2,6 +2,7 @@ package edu.harvard.iq.textcleanup.heuristics
 
 import edu.harvard.iq.textcleanup.WordCorrector
 import java.lang.Character.isLetter
+import java.lang.Character.isDigit
 
 /**
  * This heuristic keeps the non-letters, and tries to fix the letter spans.
@@ -28,7 +29,12 @@ class TextCoreSpellCheckHeuristic( val corrector:WordCorrector) extends Heuristi
         	}
         )
         
-        fixList.mkString :: Nil
+        var result = fixList.mkString
+        // sanity: make sure we don't merge digits and letters
+        if ( result.find( isLetter(_)).isDefined && result.find( isDigit(_)).isDefined )
+            Nil
+        else
+        	fixList.mkString :: Nil
     }
     
 }

@@ -8,6 +8,7 @@ import edu.harvard.iq.textcleanup.heuristics.SpellCheckersHeuristic
 import edu.harvard.iq.textcleanup.writers.TextDocumentStatisticsWriter
 import edu.harvard.iq.textcleanup.heuristics.TextCoreSpellCheckHeuristic
 import edu.harvard.iq.textcleanup.heuristics.WordUnmergerHeuristic
+import edu.harvard.iq.textcleanup.heuristics.DictionaryHeuristic
 
 object Utils {
 	// usage: iles.walkFileTree(dir.toPath, (f: Path) => println(f))
@@ -33,7 +34,7 @@ object Main extends App {
 	val dataPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data/70Election/"
 	val outputPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data-clean/"
 	val statisticsFolderPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/statistics/"
-	val maxCount = 1 //Integer.MAX_VALUE
+	val maxCount = 2 //Integer.MAX_VALUE
 	val workerThreadCount = 6
 	val SPELL_CHECKER_DIST = 5
 	
@@ -53,6 +54,7 @@ object Main extends App {
 	        // TODO make this the document cleaner, not just the corrector.
 	        println("Inited dictionary")
 	        val wc = new WordCorrector()
+	        wc.add( new DictionaryHeuristic(dictionary.words) )
 	        wc.add( new SpellCheckersHeuristic( SPELL_CHECKER_DIST, dictionary.words) )
 	        wc.add( new TextCoreSpellCheckHeuristic(wc) )
 	        wc.add( new WordUnmergerHeuristic(dictionary.words) )
@@ -79,7 +81,7 @@ object Main extends App {
 							println( stats )
 					    })
 			    }
-	    		if ( counter >= maxCount ) FileVisitResult.TERMINATE else FileVisitResult.CONTINUE
+	    		if ( counter == maxCount ) FileVisitResult.TERMINATE else FileVisitResult.CONTINUE
 	    	}
 	})
 		

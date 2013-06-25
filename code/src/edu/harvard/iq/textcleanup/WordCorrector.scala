@@ -23,7 +23,7 @@ class WordCorrector() {
         val foldedWord = word.toLowerCase()
         
         // consult heuristics, choose best
-        val sgsts = heuristics.flatMap( h => h.suggest(foldedWord).map( new FixSuggestion(word,_,h) ) )
+        val sgsts = heuristics.flatMap( h => h.suggest(foldedWord).map( f => new FixSuggestion(word,wordCase(f),h) ) )
         
 		if ( sgsts.isEmpty ) {
             Seq()

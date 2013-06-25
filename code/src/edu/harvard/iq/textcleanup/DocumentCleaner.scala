@@ -153,7 +153,7 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
     
     /**
      * Decides whether it is more likely that the original text (before hyphenation and OCR) contained
-     * the merged text, or the two unmerged ones.
+     * the merged text, or the two un-merged ones.
      * @returns {@code true} if it is likely that the original text contained the merged word (so, need to use
      *          the merged parameter).
      */
@@ -167,7 +167,6 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
         
         ( merged, original ) match {
         	case ( Pass(_),          ( _, _) ) => true
-        	case ( Fixable(_,s,_),   ( _, _) ) if s.editDistance==0 => true
         	case ( Unfixable(_),     ( _, _) ) => false
         	case ( m@Fixable(_,_,_), (t1,t2) ) => m.fix.editDistance < editDist(t1) + editDist( t2 )
         }
@@ -187,47 +186,15 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
      * Calculate the fixability of a single StringDT. 
      */
     def classifyToken( sdt:StringDT ) = {
-    	if ( sdt.textCore.isEmpty || (vocabulary contains sdt.textCore.toLowerCase) )
+    	if ( sdt.textCore.isEmpty || (vocabulary contains sdt.text.toLowerCase) )
     	    Pass( sdt )
     	else corrector.correct( sdt.text ) match {
     	    case Nil     => Unfixable( sdt )
-    	    case best :: alts => Fixable( sdt, best, alts ) 
+    	    case best :: alts => {
+    	        if ( best.editDistance  == 0 ) Pass(sdt.copy( text=best.suggestion) )
+    	        else Fixable( sdt, best, alts )
+    	    }
     	}
-    }
-        
-    // TODO break to heuristics
-    def analyzeWord( s:String ) = {
-    	lettersOnlyRgx.findFirstIn(s) match {
-    		case Some(_) => WordSuspect( s )
-    		case None    => digitsOnlyRgx.findFirstIn(s) match {
-    		    case Some(_) => NumberSuspect(s)
-    		    case None    => atLeastOneLetter.findFirstIn(s) match {
-    		        case Some(_) => CompoundSuspect( s )
-    		        case None    => GibbrishSuspect( s )
-    		    }
-    		}
-    	}
-    }
-    
-    /**
-     * TODO move to own heuristic
-     */
-    def cleanCompound( cw:String ) = {
-        val sb = new StringBuilder;
-        val st = new java.util.StringTokenizer( cw, delimiters, true )
-        while ( st.hasMoreTokens ) {
-            val emt = st.nextToken()
-            sb.append(  if ( delimiters contains emt )
-                			emt 
-                		else analyzeWord( emt ) match {
-						    case WordSuspect(w)     => corrector.correct(w)
-						    case NumberSuspect(n)   => n
-						    case CompoundSuspect(c) => c
-						    case GibbrishSuspect(g) => "" // ignore these
-						})
-        }
-        
-        sb.toString
     }
     
     def writeWord( w:String ) {

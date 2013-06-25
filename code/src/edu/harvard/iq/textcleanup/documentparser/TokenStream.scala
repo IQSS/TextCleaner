@@ -22,9 +22,9 @@ class DocumentTokenStream( val in:Iterator[String] ) {
 	var totalLength = 0L
 	
 	/** Matches strings that consist
-	 *   only of numbers and characters, and contain both 
-	 */ // TODO move to the cleaner
-    val alphaNumericRgx = """(\p{Alpha}+\d+)+\p{Alpha}*|(\d+\p{Alpha}+)+\d*""".r
+	 *   only of numbers and characters, and contain both
+	 *   
+	 */ 
     private val explicitHyphenation = """\w-$""".r
 
 	private val EOL_MARKER = ""
@@ -125,32 +125,7 @@ class DocumentTokenStream( val in:Iterator[String] ) {
 	        }
 	    }
 	}
-	
-	/**
-     * Breaks alphanumeric string to a list of alpha and numeric strings.
-     * TODO this should move to the cleaner
-     */
-    def breakAlphaNum( in:String ):List[String] = {
-        val chars = in.toCharArray
-        var startIdx = 0
-        var curIdx = 1
-        val isChar = (x:Char) => (x>='a' && x<='z') || (x>='A' && x<='Z')
-        val isNum  = (x:Char) => (x>='0' && x<='9')
-        var curFunc = if ( isNum(chars(0)) ) isNum 
-        				else if ( isChar(chars(0)) ) isChar
-        				else throw new IllegalArgumentException("string [" + in + "] is not alpha-numeric")
-        val out = new collection.mutable.MutableList[String]
-        while ( curIdx < chars.length ) {
-            if ( ! curFunc( chars(curIdx) ) ) {
-                out += new String( chars, startIdx, curIdx-startIdx )
-                curFunc = if ( curFunc == isNum ) isChar else isNum
-                startIdx = curIdx
-            } 
-            curIdx += 1
-        }
-        out += new String( chars, startIdx, curIdx-startIdx )
-        out.toList
-    }
+
 }
 
 
