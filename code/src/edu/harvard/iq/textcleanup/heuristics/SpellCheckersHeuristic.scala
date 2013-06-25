@@ -41,15 +41,15 @@ class SpellCheckersHeuristic( val dist:Int, words:collection.Set[String] ) exten
 		
 	    for ( checker <- checkers ) {
 		  	val options = checker.suggestSimilar( word, dist );
-		  	for ( (word,score) <- options.zip( (0 until dist).reverse ) ) {
-		  	    wordScore(word) = score + wordScore.getOrElse(word, 0)
+		  	for ( (word,index) <- options.zipWithIndex ) {
+		  	    wordScore(word) = (options.size-index) + wordScore.getOrElse(word, 0)
 		  	}
 	  	}
 	    
 	    if ( wordScore.isEmpty ) {
 	        Nil
 	    } else {
-	    	wordScore.groupBy( _._2).maxBy( _._1 )._2.map( _._1 ).toList
+	    	wordScore.groupBy( _._2 ).maxBy( _._1 )._2.map( _._1 ).toList
 	    }
 	}
 	 
@@ -61,7 +61,8 @@ object TestCorrector extends App {
     val dict = Set[String]("hello","world","this","is","a","test","o'er")
     val corrector = new SpellCheckersHeuristic( 5, dict )
     
-    for ( word <- Array("hello","hpllo","Ello","tis","this","thes", "o'er","over", "Hello", "HELLO", "Pello", "PELLO", "PeLLo") ) {
+    for ( word <- Array("hello","hpllo","ello","tis","this","thes",
+                         "o'er","over", "hello", "HELLO", "Pello", "PELLO", "PeLLo", "wold") ) {
         println("## " + word )
     	println( "## -> " + corrector.suggest(word) )
     }

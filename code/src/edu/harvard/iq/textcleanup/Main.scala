@@ -9,6 +9,7 @@ import edu.harvard.iq.textcleanup.writers.TextDocumentStatisticsWriter
 import edu.harvard.iq.textcleanup.heuristics.TextCoreSpellCheckHeuristic
 import edu.harvard.iq.textcleanup.heuristics.WordUnmergerHeuristic
 import edu.harvard.iq.textcleanup.heuristics.DictionaryHeuristic
+import edu.harvard.iq.textcleanup.heuristics.ApostropheHeuristic
 
 object Utils {
 	// usage: iles.walkFileTree(dir.toPath, (f: Path) => println(f))
@@ -34,7 +35,7 @@ object Main extends App {
 	val dataPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data/70Election/"
 	val outputPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data-clean/"
 	val statisticsFolderPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/statistics/"
-	val maxCount = 2 //Integer.MAX_VALUE
+	val maxCount = 1 //Integer.MAX_VALUE
 	val workerThreadCount = 6
 	val SPELL_CHECKER_DIST = 5
 	
@@ -57,6 +58,7 @@ object Main extends App {
 	        wc.add( new DictionaryHeuristic(dictionary.words) )
 	        wc.add( new SpellCheckersHeuristic( SPELL_CHECKER_DIST, dictionary.words) )
 	        wc.add( new TextCoreSpellCheckHeuristic(wc) )
+	        wc.add( new ApostropheHeuristic(wc) )
 	        wc.add( new WordUnmergerHeuristic(dictionary.words) )
 	        wc
 	    }
