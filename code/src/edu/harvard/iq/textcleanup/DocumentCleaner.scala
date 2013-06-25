@@ -122,11 +122,9 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
 		                    	case EndOfFileDT(p) => endParagraph; go = false
 		                        case nt@StringDT( p, ns ) => {
 		                            // Was there a line break in the middle of a word?
-		                            val merged   = classifyToken( prevStringDT.mergeForward(nt) )
-		                            val unmerged = ( classifyToken(prevStringDT), classifyToken(nt) )
-		                            if ( likelySplit(merged, unmerged ) ) {
-		                                // un-break the word
-		                                prevStringDT = merged.stringDT
+		                            if ( likelySplit(prevStringDT.text, nt.text) ) {
+		                                // word was hyphenated. output the merged version
+		                                prevStringDT = prevStringDT.mergeForward(nt)
 		                                tokenStream.next() // remove token from stream
 		                                
 		                            } else {
@@ -157,20 +155,26 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
      * @returns {@code true} if it is likely that the original text contained the merged word (so, need to use
      *          the merged parameter).
      */
-    def likelySplit( merged:ClassifiedToken, original:(ClassifiedToken, ClassifiedToken)  ) = {
-        
-        def editDist( c: ClassifiedToken ) = c match {
-            case Pass(_) => 0
-            case Unfixable(_) => Int.MaxValue
-            case Fixable(_,f,_) => f.editDistance
-        }									
-        
-        ( merged, original ) match {
-        	case ( Pass(_),          ( _, _) ) => true
-        	case ( Unfixable(_),     ( _, _) ) => false
-        	case ( m@Fixable(_,_,_), (t1,t2) ) => m.fix.editDistance < editDist(t1) + editDist( t2 )
+    def likelySplit( current:String, next:String ) = {
+        // simple cases we can safely reject
+        import java.lang.Character._
+        if ( isLetter(current.last) != isLetter(next(0)) ) 
+            false
+        else {
+            val merged = classifyToken(StringDT(null, current+next))
+            val original  = ( classifyToken(StringDT(null,current)), classifyToken(StringDT(null,next)) )
+            ( merged, original ) match {
+	        	case ( Pass(_),          ( _, _) ) => true
+	        	case ( Unfixable(_),     ( _, _) ) => false
+	        	case ( m@Fixable(_,_,_), (t1,t2) ) => m.fix.editDistance < ctEditDistance(t1) + ctEditDistance( t2 )
+	        }
         }
-        
+    }
+    
+    private def ctEditDistance( c: ClassifiedToken ) = c match {
+        case Pass(_) => 0
+        case Unfixable(_) => Int.MaxValue
+        case Fixable(_,f,_) => f.editDistance
     }
         
     def emitToken( sdt:StringDT ) {
