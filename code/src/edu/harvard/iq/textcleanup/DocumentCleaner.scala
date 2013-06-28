@@ -164,9 +164,9 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
             val merged = classifyToken(StringDT(null, current+next))
             val original  = ( classifyToken(StringDT(null,current)), classifyToken(StringDT(null,next)) )
             ( merged, original ) match {
-	        	case ( Pass(_),          ( _, _) ) => true
-	        	case ( Unfixable(_),     ( _, _) ) => false
-	        	case ( m@Fixable(_,_,_), (t1,t2) ) => m.fix.editDistance < ctEditDistance(t1) + ctEditDistance( t2 )
+	        	case ( Pass(_),        ( _, _) ) => true
+	        	case ( Unfixable(_),   ( _, _) ) => false
+	        	case ( Fixable(_,f,_), (t1,t2) ) => f.editDistance < ctEditDistance(t1) + ctEditDistance( t2 )
 	        }
         }
     }

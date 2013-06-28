@@ -10,7 +10,7 @@ class WordUnmergerHeuristic( val words:Set[String] ) extends Heuristic {
         val endOffset =  if (input.endsWith("i") || input.endsWith("a")) 1 else 2
         
         (start to input.length-endOffset).
-        	map( p => (input.substring(0,p), input.substring(p)) ).
+        	map( input.splitAt(_) ).
         		filter( t => (words contains t._1) && (words contains t._2) ).
         			map( t => t._1 + " " + t._2 ).toList
         
