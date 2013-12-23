@@ -4,3 +4,5 @@ data-clean/
 /code/bin
 /code/.cache
 
+/code/nbproject/private/
+/code/build/

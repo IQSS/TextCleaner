@@ -10,10 +10,10 @@ package edu.harvard.iq.textcleanup
  */
 class CliArgs( lines:Iterable[String] ) {
 	
-	val files    = lines.filter( ! _.startsWith("-") );
+	val files    = lines.filter( ! _.startsWith("-") ).toSeq;
     val switches = Set(lines.filter( (s) => {s.startsWith("-") && ! s.startsWith("--")}) );
     val values   = lines.filter( _.startsWith("--") ).
     						flatMap( (s)=>{ List(s.drop(2).split("=")) } ).
-    							flatMap( a => Array((a(0),a(1))) ).toMap
+    							map( a => (a(0),a(1)) ).toMap
     
 }

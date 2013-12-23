@@ -1,5 +1,24 @@
 package edu.harvard.iq.textcleanup.documentparser
 
+
+// Below: Legacy ?
+
+import java.nio.file.Path
+
+
+/**
+ * Document that was read from the disk.
+ */
+case class RawDocument( path: Path, content:String )
+
+/**
+ * Document, after being un-wraped and de-escaped.
+ */
+case class UnWrappedDocument( originalPath:Path, content:String ) {
+    /** How many occurrences of each word. */
+    var stats = content.split(" ").filter( ! _.isEmpty ).groupBy( p => p ).map( p=> (p._1, p._2.size) )
+}
+
 /**
  * The original position in the file. Used to track the changes and debug the heuristics.
  */
@@ -42,7 +61,6 @@ case class StringDT(pos:OriginalPosition, text:String ) extends DocumentToken {
     
     def textCore = _textCore()
 }
-
 
 object EntitiesTest extends App {
     val sdt1 = StringDT( OriginalPosition(1,2,10), "!!Hello!!!")
