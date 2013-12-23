@@ -36,12 +36,12 @@ object Main extends App {
 	val VERSION="0.6"
 	    
 	// TODO read from commandline using CliArgs
-	val dictionaryPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/dict/"
-	val dataPath = "/Volumes/MICHAEL-8G/part-000100.tartxtfiles/"
-//	val dataPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data/70Election/"
-	val outputPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data-clean/"
+	val dictionaryPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/datasets/nyt/dict/"
+	val dataPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/datasets/1800-1920/data"
+	val outputPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/datasets/1800-1920/data-clean"
+//	val outputPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/data-clean/"
 	val statisticsFolderPath = "/Users/michael/Documents/Msc/IQSS/general/historical-text-cleanup/statistics/"
-	val maxCount = -1 //Integer.MAX_VALUE
+	val maxCount = 20 //Integer.MAX_VALUE
 	val workerThreadCount = 6
 	val SPELL_CHECKER_DIST = 5
 	

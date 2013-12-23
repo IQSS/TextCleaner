@@ -63,7 +63,7 @@ class DocumentCleaner( val vocabulary:Set[String], val corrector:WordCorrector )
     private var lineHasPreviousWord = false
 
     def go( in:Path, out:Path ) = {
-    	val src = Source.fromFile(in.toFile)
+    	val src = Source.fromFile(in.toFile, "utf-8");
     	// Read the entire file to get some stats.
     	val lines = src.getLines().map( unescapeHtml4(_) ).toList
     	src.close()
