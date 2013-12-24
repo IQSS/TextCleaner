@@ -18,7 +18,7 @@ import edu.harvard.iq.textcleanup.documentparser.RawDocument
  */
 class DocumentUnWrapper( val words:Set[String], val outputRoot:Path ) {
     
-	val paragraphBreakWidthThreshold = 0.3
+	val paragraphBreakWidthThreshold = 0.5
 	val sentenceTerminators = Set('.','!','?')
 	private var thread:java.lang.Thread=null
 	
@@ -81,11 +81,22 @@ class DocumentUnWrapper( val words:Set[String], val outputRoot:Path ) {
         var secondWord = w2.trim.split(" ")(0)
         var lastChar = w1.last
         if ( Character.isAlphabetic(lastChar) && Character.isAlphabetic(secondWord(0)) ) {
-        	words.contains( (w1.toString.trim.split(" ").last + secondWord).toLowerCase() )
+            var lastWord = w1.toString.trim.split(" ").last
+            
+            if ( allCaps(lastWord) ^ allCaps(secondWord) ) {
+            	false
+            } else {
+            	words.contains( (lastWord+secondWord).toLowerCase() )
+            }
         } else {
             false
         }
     }
+    
+    def allCaps( s:String ) = s.forall( c => 
+        		{ (Character.isAlphabetic(c)&&Character.isUpperCase(c)) ||
+        		    (!Character.isAlphabetic(c)) 
+        		})
     
     def writeFile( doc:UnWrappedDocument ) {
         val outPath = outputRoot.resolve(doc.originalPath)

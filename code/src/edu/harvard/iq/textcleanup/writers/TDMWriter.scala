@@ -7,6 +7,7 @@ import scala.actors.Channel
 import java.io.PrintWriter
 import java.nio.charset.StandardCharsets
 import edu.harvard.iq.textcleanup.documentparser.UnWrappedDocument
+import java.math.BigInteger
 
 /**
  * An actor that aggregates {@link UnWrappedDocument}s until a certain it gets
@@ -16,11 +17,12 @@ class TDMWriter( val termCountThreshold:Int, val outputDir:Path ) extends Actor 
 
 	private var flushesCount = 0
 	private val docs = collection.mutable.Buffer[UnWrappedDocument]()
+	private val REPORT_INTERVAL = BigInteger.valueOf(10000)
 
 	override def act  {
 
 		var termCount = 0
-
+		var docCount = BigInteger.ONE;
 		while ( true ) {
 			receive {
 			    case UnWrappedDocument( null, _ ) => {
@@ -31,12 +33,16 @@ class TDMWriter( val termCountThreshold:Int, val outputDir:Path ) extends Actor 
 				case doc@UnWrappedDocument( p, c ) => {
 					docs += doc
 					termCount += doc.stats.size
-
+					docCount = docCount.add(BigInteger.ONE)
+					
 					if ( termCount > termCountThreshold ) {
 						flushStats()
 						termCount=0
 						docs.clear
 
+					}
+					if ( docCount.mod(REPORT_INTERVAL).equals(BigInteger.ZERO) ) {
+						println( "- %s Documents processed".format(docCount) )
 					}
 				}
 			}
