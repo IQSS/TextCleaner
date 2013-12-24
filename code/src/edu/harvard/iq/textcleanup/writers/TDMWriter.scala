@@ -13,7 +13,7 @@ import java.math.BigInteger
  * An actor that aggregates {@link UnWrappedDocument}s until a certain it gets
  * to a threshold. Then it creates a sparse Text-Document Matrix, and writes it to disk.
  */
-class TDMWriter( val termCountThreshold:Int, val outputDir:Path ) extends Actor {
+class TDMWriter( val termCountThreshold:Int, val outputDir:Path, val shutdownHook:()=>Unit ) extends Actor {
 
 	private var flushesCount = 0
 	private val docs = collection.mutable.Buffer[UnWrappedDocument]()
@@ -27,7 +27,7 @@ class TDMWriter( val termCountThreshold:Int, val outputDir:Path ) extends Actor 
 			receive {
 			    case UnWrappedDocument( null, _ ) => {
 			        flushStats()
-			        println("TDM actor exiting")
+			        if ( shutdownHook!=null ) shutdownHook()
 			        exit()
 			    }
 				case doc@UnWrappedDocument( p, c ) => {

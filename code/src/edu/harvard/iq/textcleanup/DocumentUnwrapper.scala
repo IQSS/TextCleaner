@@ -91,7 +91,7 @@ class DocumentUnWrapper( val words:Set[String], val outputRoot:Path ) {
         } else {
             false
         }
-    }
+    } 
     
     def allCaps( s:String ) = s.forall( c => 
         		{ (Character.isAlphabetic(c)&&Character.isUpperCase(c)) ||

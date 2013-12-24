@@ -33,7 +33,8 @@ object UnWrapMain extends App {
     }
     
     println("TextCleaner: Unwrapping")
-    println( new Date() )
+    println("be0c0a3  multi-stage-version")
+    println( new Date )
     println( "input:\t%s".format(inputRoot) )
     println( "output:\t%s".format(outputRoot) )
     println( "tdms:\t%s".format(tdmRoot) )
@@ -48,7 +49,7 @@ object UnWrapMain extends App {
     val words = new LineWordSetLoader().load( dictionaryRoot )
     println("DONE (%,d words)".format(words.size) )
     
-    val tdmWriter = new TDMWriter(tdmSize, tdmRoot);
+    val tdmWriter = new TDMWriter(tdmSize, tdmRoot, ()=>{println("%s ALL DONE!".format(new Date))});
     val docQueue = new ArrayBlockingQueue[RawDocument](queueLength)
     val workers = collection.mutable.Set[DocumentUnWrapper]()
     for ( i <- 0 to workerCount ) {
@@ -70,8 +71,8 @@ object UnWrapMain extends App {
         println("All workers done")
         
         tdmWriter ! new UnWrappedDocument(null,"")
-        
-        println( "all done" )
+
+
     }).go
     
     println( "all started" )
