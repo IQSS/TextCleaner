@@ -6,6 +6,7 @@ import edu.harvard.iq.textcleanup.writers.TDMWriter
 import java.util.concurrent.ArrayBlockingQueue
 import edu.harvard.iq.textcleanup.documentparser.RawDocument
 import edu.harvard.iq.textcleanup.documentparser.UnWrappedDocument
+import edu.harvard.iq.textcleanup.documentparser.UnWrappedDocumentStats
 
 /**
  * Stages and executes the unwrapping of files in a directory
@@ -33,7 +34,7 @@ object UnWrapMain extends App {
     }
     
     println("TextCleaner: Unwrapping")
-    println("e3fddd6  multi-stage-version")
+    println("[multi-stage-version a79295f]")
     println( new Date )
     println( "input:\t%s".format(inputRoot) )
     println( "output:\t%s".format(outputRoot) )
@@ -57,7 +58,7 @@ object UnWrapMain extends App {
         workers += duw
         duw.go(docQueue, tdmWriter)
     }
-    tdmWriter.start()
+    tdmWriter.go()
     
     new DirectoryReader( inputRoot, docQueue, ()=>{
         println("Done queueing files");
@@ -70,7 +71,8 @@ object UnWrapMain extends App {
         })
         println("All workers done")
         
-        tdmWriter ! new UnWrappedDocument(null,"")
+        // shutdown signal
+        tdmWriter.queue.put( new UnWrappedDocumentStats(null,null) )
 
 
     }).go

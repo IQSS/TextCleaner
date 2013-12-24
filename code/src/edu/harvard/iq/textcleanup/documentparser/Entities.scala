@@ -1,7 +1,6 @@
 package edu.harvard.iq.textcleanup.documentparser
 
 
-// Below: Legacy ?
 
 import java.nio.file.Path
 
@@ -17,7 +16,13 @@ case class RawDocument( path: Path, content:String )
 case class UnWrappedDocument( originalPath:Path, content:String ) {
     /** How many occurrences of each word. */
     var stats = content.split(" ").filter( ! _.isEmpty ).groupBy( p => p ).map( p=> (p._1, p._2.size) )
+    
+    def strip = new UnWrappedDocumentStats(originalPath, stats)
 }
+
+case class UnWrappedDocumentStats( val originalPath:Path, val stats:Map[String,Int] )
+
+// Below: Legacy ?
 
 /**
  * The original position in the file. Used to track the changes and debug the heuristics.

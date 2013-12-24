@@ -32,7 +32,7 @@ class DocumentUnWrapper( val words:Set[String], val outputRoot:Path ) {
 	                run = false
 	            } else {
 	                var uwd = unwrap(rd)
-	                statsOut ! uwd
+	                statsOut.queue.put(uwd.strip)
 	                writeFile( uwd )
 	            }
 	        }

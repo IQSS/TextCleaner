@@ -8,30 +8,38 @@ import java.io.PrintWriter
 import java.nio.charset.StandardCharsets
 import edu.harvard.iq.textcleanup.documentparser.UnWrappedDocument
 import java.math.BigInteger
+import edu.harvard.iq.textcleanup.documentparser.UnWrappedDocumentStats
+import java.util.concurrent.ArrayBlockingQueue
 
 /**
  * An actor that aggregates {@link UnWrappedDocument}s until a certain it gets
  * to a threshold. Then it creates a sparse Text-Document Matrix, and writes it to disk.
  */
-class TDMWriter( val termCountThreshold:Int, val outputDir:Path, val shutdownHook:()=>Unit ) extends Actor {
+class TDMWriter( val termCountThreshold:Int, val outputDir:Path, val shutdownHook:()=>Unit ) {
 
 	private var flushesCount = 0
-	private val docs = collection.mutable.Buffer[UnWrappedDocument]()
+	private val docs = collection.mutable.Buffer[UnWrappedDocumentStats]()
 	private val REPORT_INTERVAL = BigInteger.valueOf(10000)
-
-	override def act  {
+	
+	val queue = new ArrayBlockingQueue[UnWrappedDocumentStats](1024)
+	
+	def go() {
+	    import edu.harvard.iq.textcleanup.Implicits._
+	    new java.lang.Thread( ()=>{consumptionLoop} ).start()
+	}
+	
+	def consumptionLoop  {
 
 		var termCount = 0
 		var docCount = BigInteger.ONE;
-		while ( true ) {
-			receive {
-			    case UnWrappedDocument( null, _ ) => {
-			        flushStats()
-			        println( "- %s %s Documents processed".format(new java.util.Date, docCount) )
-			        if ( shutdownHook!=null ) shutdownHook()
-			        exit()
+		var go=true
+		while ( go ) {
+			var docStat = queue.take()
+			docStat match {
+			    case UnWrappedDocumentStats( null, _ ) => {
+			        go = false
 			    }
-				case doc@UnWrappedDocument( p, c ) => {
+				case doc@UnWrappedDocumentStats( p, c ) => {
 					docs += doc
 					termCount += doc.stats.size
 					docCount = docCount.add(BigInteger.ONE)
@@ -40,7 +48,7 @@ class TDMWriter( val termCountThreshold:Int, val outputDir:Path, val shutdownHoo
 						flushStats()
 						termCount=0
 						docs.clear
-
+	
 					}
 					if ( docCount.mod(REPORT_INTERVAL).equals(BigInteger.ZERO) ) {
 						println( "- %s %s Documents processed".format(new java.util.Date, docCount) )
@@ -48,8 +56,11 @@ class TDMWriter( val termCountThreshold:Int, val outputDir:Path, val shutdownHoo
 				}
 			}
 		}
+		flushStats()
+		println( "- %s %s Documents processed".format(new java.util.Date, docCount) )
+		if ( shutdownHook!=null ) shutdownHook()
 	}
-
+	
 	private def flushStats() {
 		flushesCount += 1
 	    
