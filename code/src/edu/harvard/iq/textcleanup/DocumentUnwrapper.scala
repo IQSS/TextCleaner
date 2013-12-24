@@ -54,7 +54,8 @@ class DocumentUnWrapper( val words:Set[String], val outputRoot:Path ) {
         
     	for ( line <- unescapedLines ) {
     		var tLine = line.trim
-    	    if ( sentenceTerminators(tLine.last) || tLine.length<paragraphBreakThreshold ) {
+    		
+    	    if ( tLine.isEmpty() || sentenceTerminators(tLine.last) || tLine.length<paragraphBreakThreshold ) {
     	        // a new paragraph indeed
     	        unWraped += curLine.toString
     	        curLine.clear()

@@ -27,6 +27,7 @@ class TDMWriter( val termCountThreshold:Int, val outputDir:Path, val shutdownHoo
 			receive {
 			    case UnWrappedDocument( null, _ ) => {
 			        flushStats()
+			        println( "- %s %s Documents processed".format(new java.util.Date, docCount) )
 			        if ( shutdownHook!=null ) shutdownHook()
 			        exit()
 			    }
@@ -42,7 +43,7 @@ class TDMWriter( val termCountThreshold:Int, val outputDir:Path, val shutdownHoo
 
 					}
 					if ( docCount.mod(REPORT_INTERVAL).equals(BigInteger.ZERO) ) {
-						println( "- %s Documents processed".format(docCount) )
+						println( "- %s %s Documents processed".format(new java.util.Date, docCount) )
 					}
 				}
 			}
@@ -69,7 +70,7 @@ class TDMWriter( val termCountThreshold:Int, val outputDir:Path, val shutdownHoo
 	    	doc.stats.foreach( p => {
 	    	    val id = termToId.getOrElse( p._1, -1 )
 	    	    if ( id != -1 ) {
-	    	    	out.print("\t" + id + "x" + p._2 )
+	    	    	out.print("\t" + id + (if (p._2>1) { "x" + p._2 } else {""} ) )
 	    	    }
 	    	})
 	    	out.println()
