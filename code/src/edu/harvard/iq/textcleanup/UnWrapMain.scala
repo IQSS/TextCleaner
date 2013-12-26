@@ -17,8 +17,8 @@ object UnWrapMain extends App {
     
     val inputRoot = Paths.get(params.files(0))
     val outputRoot = Paths.get(params.files(1))
-    val tdmRoot = Paths.get(params.files(2))
-    val dictionaryRoot = Paths.get(params.files(3))
+    val dictionaryRoot = Paths.get(params.files(2))
+    val tdmRoot = params.files.drop(3).map( Paths.get(_) )
     
     val workerCount = params.values.get("worker-count") match {
         case Some(s) => s.toInt
@@ -34,12 +34,12 @@ object UnWrapMain extends App {
     }
     
     println("TextCleaner: Unwrapping")
-    println("[multi-stage-version a79295f]")
+    println("[multi-stage-version 195d9b2]")
     println( new Date )
     println( "input:\t%s".format(inputRoot) )
     println( "output:\t%s".format(outputRoot) )
-    println( "tdms:\t%s".format(tdmRoot) )
     println( "dictionary:\t%s".format(dictionaryRoot) )
+    println( "tdms:\t%s".format(tdmRoot) )
     println( "options: " )
     println( "worker count:\t %d".format(workerCount) )
     println( "queue length:\t %d".format(queueLength) )
